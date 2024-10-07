@@ -1,8 +1,8 @@
-/* Magic Mirror
+/* global Log Module */
+
+/* MagicMirror²
  * Module: MMM-uv-index
- * Version: 1.0.1
  *
- * By Piotr Kucharski (https://github.com/Sketusky/MMM-uv-index)
  * MIT Licensed.
  */
 Module.register("MMM-uv-index", {
@@ -22,22 +22,23 @@ Module.register("MMM-uv-index", {
         apiVersion: "3.0",
         apiBase: "https://api.openweathermap.org/data/",
         uvEndpoint: "onecall",
-
     },
 
-    getStyles: function() {
+    getStyles () {
         return ["uv-index.css"];
     },
 
-    getTranslations: function() {
+    getTranslations () {
         return {
-            en: 'translations/en.json',
-            pl: 'translations/pl.json'
-        }
+            de: "translations/de.json",
+            en: "translations/en.json",
+            nl: "translations/nl.json",
+            pl: "translations/pl.json"
+        };
     },
 
-    start: function() {
-        Log.info("Starting module: " + this.name);
+    start () {
+        Log.info(`Starting module: ${this.name}`);
 
         this.value = null;
         this.date = null;
@@ -45,59 +46,56 @@ Module.register("MMM-uv-index", {
         this.scheduleUpdate(this.config.initialLoadDelay);
     },
 
-    getDom: function() {
-        var wrapper = document.createElement("div");
+    getDom () {
+        const wrapper = document.createElement("div");
 
         if (this.config.appid === "") {
-            wrapper.innerHTML = "Please set the correct openuv <i>appid</i> in the config for module: " + this.name + ".";
+            wrapper.innerHTML = `Please set the correct <i>appid</i> in the config for module: ${this.name}.`;
             wrapper.className = "dimmed light small";
-            return wrapper;
-        }
-
-        if (!this.loaded) {
+        } else if (this.config.lat === null || this.config.lon === null) {
+            wrapper.innerHTML =`Please set the correct <i>lat</i> and <i>lon</i> in the config for module: ${this.name}.`;
+            wrapper.className = "dimmed light small";
+        } else if (!this.loaded) {
             wrapper.innerHTML = this.translate("LOADING");
             wrapper.className = "dimmed light small";
-            return wrapper;
+        } else {
+            const table = document.createElement("table");
+            table.className = "small";
+
+            const row = document.createElement("tr");
+            table.appendChild(row);
+
+            const valueColumn = document.createElement("td");
+            valueColumn.className = "small value";
+            valueColumn.innerHTML = this.value;
+            row.appendChild(valueColumn);
+
+            const scaleColumn = document.createElement("td");
+            scaleColumn.className = `small scale align-right ${this.colorValue(this.value)}`;
+            scaleColumn.innerHTML = this.scaleValue(this.value);
+            row.appendChild(scaleColumn);
+
+            wrapper.appendChild(table);
         }
-
-        var table = document.createElement("table");
-        table.className = "small";
-
-        var row = document.createElement("tr");
-
-        table.appendChild(row);
-
-        var valueColumn = document.createElement("td");
-        valueColumn.className = "small value";
-        valueColumn.innerHTML = this.value;
-        row.appendChild(valueColumn);
-
-        var scaleColumn = document.createElement("td");
-        scaleColumn.className = "small scale align-right " + this.colorValue(this.value);
-        scaleColumn.innerHTML = this.scaleValue(this.value);
-        row.appendChild(scaleColumn);
-
-        wrapper.appendChild(table);
-
         return wrapper;
     },
 
-    scaleValue: function(value) {
+    scaleValue (value) {
         if (value <= 2.0) {
-            return this.translate('low');
+            return this.translate("low");
         } else if (value <= 5.0) {
-            return this.translate('moderate');
+            return this.translate("moderate");
         } else if (value <= 7.0) {
-            return this.translate('high');
+            return this.translate("high");
         } else if (value <= 10.0) {
-            return this.translate('veryHigh');
+            return this.translate("veryHigh");
         } else {
-            return this.translate('extreme');
+            return this.translate("extreme");
         }
     },
 
-    colorValue: function(value) {
-        if(this.config.colors) {
+    colorValue (value) {
+        if (this.config.colors) {
             if (value <= 2.0) {
                 return "green";
             } else if (value <= 5.0) {
@@ -113,57 +111,47 @@ Module.register("MMM-uv-index", {
         return "";
     },
 
-    updateUV: function() {
+    async updateUV () {
+        let retry = false;
         if (this.config.appid === "") {
-            Log.error("Currentuv: APPID not set!");
-            return;
+            Log.error(`${this.name}: APPID not set!`);
+        } else if (this.config.lat === null || this.config.lon === null) {
+            Log.error(`${this.name}: lat and/or lon not set!`);
+        } else {
+            const url = `${this.config.apiBase}${this.config.apiVersion}/${this.config.uvEndpoint}${this.getParams()}`;
+            const self = this;
+
+            try {
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    self.processUV(data);
+                } else if (response.status === 401) {
+                    self.updateDom(self.config.animationSpeed);
+                    Log.error(`${self.name}: Incorrect APPID.`);
+                } else {
+                    Log.error(`${self.name}: Could not load uv.`);
+                    retry = true;
+                }
+            } catch (error) {
+                Log.error(`${self.name}: Could not load uv. ${error}`);
+                retry = true;
+            }
         }
 
-        var url = this.config.apiBase + this.config.apiVersion + "/" + this.config.uvEndpoint + this.getParams();
-        var self = this;
-        var retry = true;
-
-        var uvRequest = new XMLHttpRequest();
-        uvRequest.open("GET", url, true);
-        uvRequest.onreadystatechange = function() {
-            if (this.readyState === 4) {
-                if (this.status === 200) {
-                    self.processUV(JSON.parse(this.response));
-                } else if (this.status === 401) {
-                    self.updateDom(self.config.animationSpeed);
-
-                    Log.error(self.name + ": Incorrect APPID.");
-                    retry = true;
-                } else {
-                    Log.error(self.name + ": Could not load uv.");
-                }
-
-                if (retry) {
-                    self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
-                }
-            }
-        };
-        uvRequest.send();
+        if (retry && !this.loaded) {
+            self.scheduleUpdate(self.config.retryDelay);
+        }
     },
 
-    getParams: function() {
-        var params = "?";
-        if (this.config.lat) {
-            params += "lat=" + this.config.lat;
-        } else {
-            this.hide(this.config.animationSpeed, {
-                lockString: this.identifier
-            });
-            return;
-        }
-
-        params += "&lon=" + this.config.lon;
-        params += "&APPID=" + this.config.appid;
-
+    getParams () {
+        let params = `?lat=${this.config.lat}`;
+        params += `&lon=${this.config.lon}`;
+        params += `&APPID=${this.config.appid}`;
         return params;
     },
 
-    processUV: function(data) {
+    processUV (data) {
         if (!data || typeof data.current.uvi === "undefined") {
             // Did not receive usable new data.
             // Maybe this needs a better check?
@@ -171,25 +159,19 @@ Module.register("MMM-uv-index", {
         }
 
         this.value = data.current.uvi;
-
-        this.show(this.config.animationSpeed, {
-            lockString: this.identifier
-        });
         this.loaded = true;
         this.updateDom(this.config.animationSpeed);
-        this.sendNotification("CURRENTUV_DATA", {
-            data: data
-        });
+        this.sendNotification("CURRENTUV_DATA", {data});
     },
 
-    scheduleUpdate: function(delay) {
-        var nextLoad = this.config.updateInterval;
+    scheduleUpdate (delay) {
+        let nextLoad = this.config.updateInterval;
         if (typeof delay !== "undefined" && delay >= 0) {
             nextLoad = delay;
         }
 
-        var self = this;
-        setTimeout(function() {
+        const self = this;
+        setTimeout(() => {
             self.updateUV();
         }, nextLoad);
     },

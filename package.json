@@ -1,0 +1,26 @@
+{
+  "name": "mmm-uv-index",
+  "version": "2.1.0",
+  "description": "A module for MagicMirror² to display the ultraviolet index of your location.",
+  "main": "MMM-uv-index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thariq-shanavas/MMM-uv-index.git"
+  },
+  "keywords": [
+    "MagicMirror²",
+    "UV",
+    "index",
+    "ultraviolet",
+    "health"
+  ],
+  "author": "Piotr Kucharski",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/thariq-shanavas/MMM-uv-index/issues"
+  },
+  "homepage": "https://github.com/thariq-shanavas/MMM-uv-index#readme"
+}
