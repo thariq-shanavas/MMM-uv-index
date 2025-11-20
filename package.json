@@ -1,0 +1,15 @@
+{
+  "name": "mmm-uv-index",
+  "version": "0.1.0",
+  "description": "Show the current UV Index",
+  "main": "MMM-uv-index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thariq-shanavas/MMM-uv-index.git"
+  },
+  "keywords": [
+    "Weather"
+  ],
+  "author": "Thariq",
+  "license": "MIT"
+}
